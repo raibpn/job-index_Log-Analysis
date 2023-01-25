@@ -20,15 +20,33 @@ total_values<- nrow(query_data)
 
 total_missing_value_in_query<-sum(is.na(query_data$QUERY))
 
-session_count <- query_data%>%group_by(JOB_ID)%>%
+#number of sessions count
+session_count <- query_data%>%group_by(JOB_ID, CATEGORIES)%>%
   summarise(COUNT=n())
 
+#how many session in average
+mean_session_count <- mean(session_count$COUNT, na.rm = TRUE)
 
-#how the session last in seconds
+rm(session_lengthTime_groupedCategoreis)
+
+#how the session last
 session_length_time <- query_data%>% group_by(JOB_ID)%>%
-  summarise(session_duration = max(TIMESTAMP)-min(TIMESTAMP))
+  mutate(session_duration = max(TIMESTAMP)-min(TIMESTAMP))%>%
+  summarise(CATEGORIES,Duration = seconds_to_period(session_duration))
 
-mean(session_length_time$session_duration/120, na.rm = TRUE)
+
+#drop na containing row from session_length_time
+session_length_time_filtered <- na.omit(session_length_time)
+sum(is.na(session_length_time_filtered$CATEGORIES))
+
+#what is the maximum session duration and which row
+max_session <- session_length_time_filtered%>%
+ group_by(Duration)%>%
+  slice_max(Duration)%>%tail(15)
+
+
+
+mean(session_length_time$Duration, na.rm = TRUE)
 #1186 hours that is 49 days
 
 max(session_length_time$session_duration) #who does this session length belongs to?
