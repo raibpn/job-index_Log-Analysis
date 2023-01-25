@@ -51,4 +51,10 @@ mean(session_length_time$Duration, na.rm = TRUE)
 
 max(session_length_time$session_duration) #who does this session length belongs to?
 
-sessions <- sessionise(query_data,TIMESTAMP,JOB_ID)
+#JOIN QUERY DATA & INDUSTRY DATA TO VISUALIZE PER industry_sector_name
+
+industry_query_counts <- inner_join(query_data,industry_data, by = "JOB_ID") %>%
+  group_by(INDUSTRY_SECTOR_NAME)%>% 
+  summarize(query_count = n())%>%arrange(desc(query_count)) #summarize multiple same data
+
+
