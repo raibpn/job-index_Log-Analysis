@@ -17,6 +17,9 @@
 # Output files from R CMD check
 /*.Rcheck/
 
+#csv files untrack
+*.csv
+
 # RStudio files
 .Rproj.user/
 
