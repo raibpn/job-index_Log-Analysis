@@ -27,7 +27,7 @@ filtered_session_query_counts <- na.omit(session_query_counts)
 #repeated query-query repated count
 repeated_query <- filtered_session_query_counts%>%
   group_by(QUERY)%>%
-  summarise(Count = n())
+  summarise(Count = n())%>%arrange(desc(Count))
 
 
 #number queries in a session
