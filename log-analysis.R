@@ -55,30 +55,25 @@ max_session <- session_length_time_filtered%>%
 
 max(session_length_time$session_duration) #who does this session length belongs to?
 
-
-
+#df<-filter(industry_data, JOB_ID == 538240)
 
 #JOIN QUERY DATA & INDUSTRY DATA TO VISUALIZE PER industry_sector_name
 
-industry_query_counts <- inner_join(query_data,industry_data,by=c("JOB_ID")) %>%
+industry_mean_query_counts <- inner_join(query_data,industry_data,by=c("JOB_ID" = "JOB_ID")) %>%
   group_by(INDUSTRY_SECTOR_NAME)%>%
   select(JOB_ID,INDUSTRY_SECTOR_NAME)%>%
-  mutate(COUNT = n())
+  mutate(COUNT = n())%>%
+  summarise(MEAN = mean(COUNT))%>%
+  arrange(desc(MEAN))
   
 
-
-mean_query_per_session_industry <-summarise(group_by(industry_query_counts,INDUSTRY_SECTOR_NAME),
-                                            MEAN = mean(COUNT))
-           
-  
-
-
-ggplot(data=mean_query_per_session_industry,aes(x = MEAN, y= reorder(INDUSTRY_SECTOR_NAME, MEAN),
-                                      fill=MEAN))+geom_bar(stat = "identity")
-
+ggplot(data=industry_mean_query_counts,aes(x = MEAN, y= reorder(INDUSTRY_SECTOR_NAME, MEAN),
+                  fill=MEAN))+geom_bar(stat = "identity")+
+                  labs(x="MEAN", y="INDUSTRY_SECTOR_NAME", title = "MEAN Query Per Company")
 
 #most frequent queries per company (if compared above geombar is approved)
-frequent_queries_per_company <- head(industry_query_counts)
+frequent_queries_per_company <- industry_mean_query_counts%>%head(5)
+  
 
 #Average queries per session grouped by Industry
 industy_query_count <- inner_join(industry_data,query_data, by="JOB_ID", "INDUSTRY_SECTOR_NAME")%>%
