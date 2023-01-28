@@ -68,8 +68,8 @@ max(session_length_time$session_duration) #who does this session length belongs 
 industry_mean_query_counts <- inner_join(query_data,industry_data,by=c("JOB_ID" = "JOB_ID")) %>%
   group_by(INDUSTRY_SECTOR_NAME)%>%
   select(JOB_ID,INDUSTRY_SECTOR_NAME)%>%
-  mutate(COUNT = n())%>%
-  summarise(MEAN = mean(COUNT))%>%
+  mutate(query_count = n())%>%
+  summarise(MEAN=mean(query_count))%>%
   arrange(desc(MEAN))
   
 
