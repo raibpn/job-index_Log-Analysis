@@ -83,6 +83,6 @@ frequent_queries_per_company <- industry_mean_query_counts%>%head(5)
 
 #Average queries per session grouped by Industry
 industy_query_count <- inner_join(industry_data,query_data, by="JOB_ID", "INDUSTRY_SECTOR_NAME")%>%
-  summarise(INDUSTRY_SECTOR_NAME, COUNT = n())%>%
-  summarise(INDUSTRY_SECTOR_NAME, MEAN_QUERY_COUNT = mean())
+  group_by(INDUSTRY_SECTOR_NAME)%>%
+  summarise(QUERY_COUNT = n())
 
