@@ -255,17 +255,17 @@ ggscatter(summarised_query_cor_salary, x = "SALARY_MAX", y = "mean_success",
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #CORRELATION BETWEEN MINIMUM WORK EXPERIENCE AND SUCCESS RATE
-correlation_query_success_salary <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
+correlation_query_success_min_exp <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
   group_by(JOB_ID)%>%
-  select(SALARY_MAX, successful_responses)
+  select(WORK_EXP_MIN, successful_responses)
 
-filtered_query_correlation_salary <- na.omit(correlation_query_success_salary)
+filtered_query_correlation_min_exp <- na.omit(correlation_query_success_min_exp)
 
-summarised_query_cor_salary <- filtered_query_correlation_salary%>%group_by(SALARY_MAX)%>%
+summarised_query_cor_min_exp <- filtered_query_correlation_min_exp%>%group_by(WORK_EXP_MIN)%>%
   summarise(mean_success = mean(successful_responses), n=n())
 
-ggscatter(summarised_query_cor_salary, x = "SALARY_MAX", y = "mean_success", 
+ggscatter(summarised_query_cor_min_exp, x = "WORK_EXP_MIN", y = "mean_success", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "MAX SALARY", ylab = "MEAN_SUCCESS")
+          xlab = "MIN EXPERIENCE", ylab = "MEAN_SUCCESS")
 
