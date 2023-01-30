@@ -217,21 +217,6 @@ cor(top_query_cor_location$LOCATION_IDS, top_query_cor_location$successful_respo
 plot(top_query_cor_location$LOCATION_IDS, top_query_cor_location$successful_responses)
 cor(correlation_query_success_location$LOCATION_IDS, correlation_query_success_location$successful_responses)
 
-#set.seed(123)
-#query_length0 <- rnorm(100, mean=5, sd=2)
-#success_rate0 <- rnorm(100, mean=0.8, sd=0.1) + query_length0 * 0.1
-#data0 <- data.frame(query_length0, success_rate0)
-#plot(data0$query_length0, data0$success_rate0)
-#cor(data0$query_length0, data0$success_rate0)
-
-table1 <- data.frame(id = c(1, 2, 3), var1 = c(3, 4, 5))%>%view()
-table2 <- data.frame(id = c(1, 2, 3), var2 = c(6, 7, 8))
-
-# merge the two tables based on the common column 'id'
-merged_table <- merge(table1, table2, by = "id")
-
-# calculate the correlation between var1 and var2
-cor(merged_table$var1, merged_table$var2)
 
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -251,6 +236,8 @@ ggscatter(summarised_query_cor_salary, x = "SALARY_MAX", y = "mean_success",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "MAX SALARY", ylab = "MEAN_SUCCESS")
 
+cor(summarised_query_cor_salary$SALARY_MAX, summarised_query_cor_salary$mean_success)
+
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -269,3 +256,34 @@ ggscatter(summarised_query_cor_min_exp, x = "WORK_EXP_MIN", y = "mean_success",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "MIN EXPERIENCE", ylab = "MEAN_SUCCESS")
 
+
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#CORRELATION BETWEEN LANGUAGE SKILLS AND SUCCESS RATE
+correlation_query_success_language <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(JOB_ID)%>%
+  select(LANGUAGE_SKILLS, successful_responses)
+
+filtered_query_correlation_language <- na.omit(correlation_query_success_language)
+
+summarised_query_cor_language <- filtered_query_correlation_language%>%group_by(LANGUAGE_SKILLS)%>%
+  summarise(mean_success = mean(successful_responses), n=n())
+
+
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#MOST FREQUENT KEYWORDS OR CATEGORIES IN SUCCESSFULL QUERIES
+frequent_query_success <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(JOB_ID)%>%
+  select(QUERY, successful_responses)
+
+filtered_frequent_query_success <- na.omit(frequent_query_success)
+
+summarised_frequent_query_success <- filtered_frequent_query_success%>%group_by(QUERY)%>%
+  summarise(mean_success = mean(successful_responses), n=n())
+
+arranged_frequent_query_success <- summarised_frequent_query_success%>%arrange(desc(mean_success))
+top_frequent_query_success <- arranged_frequent_query_success%>%head(5)
+#unique(arranged_frequent_query_success$mean_success)
