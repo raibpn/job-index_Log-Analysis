@@ -36,6 +36,8 @@ query_per_session <- query_data%>%
  group_by(JOB_ID)%>%
   summarise(COUNT = n())
  
+query_per_session1 <- query_data%>%
+  group_by(JOB_ID)
 
 #how many queries per session in average
 mean_query_per_session <- mean(query_per_session$COUNT, na.rm = TRUE)
@@ -140,6 +142,11 @@ query_success <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID")
             total_responses = n())%>%
   summarise(success_rate = mean(successful_responses))
 
+query_success1 <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(INDUSTRY_SECTOR_NAME)%>%
+  mutate(successful_responses = sum(RESPONSE_TYPE == 1), 
+         total_responses = n())
+
 
 industry_summary <- query_success%>%
   arrange(desc(success_rate))
@@ -151,6 +158,34 @@ ggplot(data=industry_summary,aes(x = success_rate, y= reorder(INDUSTRY_SECTOR_NA
   
  
 
-
 #CORRELATION BETWEEN QUERY LENGTH AND SUCCESS RATE
+correlation_query_success_location <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
+  select(LOCATION_IDS, successful_responses)
 
+filtered_query_correlation_location <- na.omit(correlation_query_success_location)
+
+top_query_cor_location<-filtered_query_correlation_location%>%head(10)
+
+  
+cor(top_query_cor_location$LOCATION_IDS, top_query_cor_location$successful_responses)
+
+
+
+plot(top_query_cor_location$LOCATION_IDS, top_query_cor_location$successful_responses)
+cor(correlation_query_success_location$LOCATION_IDS, correlation_query_success_location$successful_responses)
+
+#set.seed(123)
+#query_length0 <- rnorm(100, mean=5, sd=2)
+#success_rate0 <- rnorm(100, mean=0.8, sd=0.1) + query_length0 * 0.1
+#data0 <- data.frame(query_length0, success_rate0)
+#plot(data0$query_length0, data0$success_rate0)
+#cor(data0$query_length0, data0$success_rate0)
+
+table1 <- data.frame(id = c(1, 2, 3), var1 = c(3, 4, 5))%>%view()
+table2 <- data.frame(id = c(1, 2, 3), var2 = c(6, 7, 8))
+
+# merge the two tables based on the common column 'id'
+merged_table <- merge(table1, table2, by = "id")
+
+# calculate the correlation between var1 and var2
+cor(merged_table$var1, merged_table$var2)
