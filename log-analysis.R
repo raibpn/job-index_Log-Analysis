@@ -9,7 +9,7 @@ library(lubridate)
 library(scales)
 library(reconstructr)
 library("ggpubr")
-
+library(hrbrthemes)
 
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -287,3 +287,43 @@ summarised_frequent_query_success <- filtered_frequent_query_success%>%group_by(
 arranged_frequent_query_success <- summarised_frequent_query_success%>%arrange(desc(mean_success))
 top_frequent_query_success <- arranged_frequent_query_success%>%head(5)
 #unique(arranged_frequent_query_success$mean_success)
+
+
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#QUERY SUCCESS BEHAVIOR CHANGED OVER TIME
+query_success_behavior_time <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(JOB_ID)%>%
+  select(TIMESTAMP_FORMATTED.x, successful_responses)
+
+filtered_query_success_behavior_time <- na.omit(query_success_behavior_time)
+
+#summarised_query_success_time <- filtered_query_success_behavior_time%>%group_by(TIMESTAMP_FORMATTED.x)%>%
+ # summarise(mean_success = mean(successful_responses), n=n())
+
+#arranged_query_success_time <- summarised_query_success_time%>%arrange(desc(mean_success))
+filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x <- as.POSIXct(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, format = "%Y-%m-%d %H:%M:%S")
+#EXTRACT MONTH
+filtered_query_success_behavior_time$month <- as.Date(floor_date(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "month"))
+
+ggplot(filtered_query_success_behavior_time, aes(x = month, y = successful_responses)) + 
+  geom_line() + 
+  xlab("Month") + 
+  ylab("Success Rate") + 
+  ggtitle("Success Rate Over Time") + 
+  scale_x_date(date_breaks = "6 months", date_labels = "%b %Y")
+
+ggplot(filtered_query_success_behavior_time, aes(x=month, y=successful_responses)) +
+  geom_line( color="#69b3a2") + 
+  xlab("Month") +
+  ylab("Success Rate") +
+  theme_ipsum() +
+  theme(axis.text.x=element_text(angle=60, hjust=1)) 
+
+#EXAMPLE
+time_column <- c("2022-01-01 10:00:00", "2022-01-02 11:00:00", "2022-01-03 12:00:00")
+df <- data.frame(time_column)
+df$time_column <- as.POSIXct(df$time_column, format = "%Y-%m-%d %H:%M:%S")
+df2 <- df$year <- format(df$time_column, "%Y")
+
