@@ -54,8 +54,33 @@ session_length_time_filtered <- na.omit(session_length_time)
 sum(is.na(session_length_time_filtered$CATEGORIES))
 
 #session length time grouped by categories and mean session length time produced
-session_length_by_categories <- session_length_time_filtered%>%ungroup()%>%group_by(CATEGORIES)%>%
+session_length_by_categories <- session_length_time_filtered%>%group_by(CATEGORIES)%>%
   summarise(mean_duration = mean(Duration))
+
+
+
+
+
+
+
+#session length by industry
+session_length_by_industry <- inner_join(session_length_time_filtered,industry_data,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(INDUSTRY_SECTOR_NAME)%>%
+  summarise(mean_length = mean(Duration))
+
+session_length_industry_summary <- session_length_by_industry%>%arrange(desc(mean_length))
+
+#visualize session_length_industry_summary in histogram
+ggplot(data=session_length_industry_summary,aes(x = mean_length, y= reorder(INDUSTRY_SECTOR_NAME, mean_length),
+                                 fill=mean_length))+geom_bar(stat = "identity")+
+  labs(x="MEAN_LENGTH", y="INDUSTRY_MEAN_DURATION", title = "Industry Success Rate")
+
+
+
+
+
+
+
 
 #what is the maximum session duration and which row
 max_session <- session_length_time_filtered%>%
