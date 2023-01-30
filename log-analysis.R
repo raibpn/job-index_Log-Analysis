@@ -9,6 +9,7 @@ library(reconstructr)
 
 query_data <- read_csv("query-data.2021.csv")
 industry_data <- read_csv("industry-data.csv")
+response_data <- read_csv("response-data.2021.csv")
 
 head(query_data)
 total_values<- nrow(query_data)
@@ -36,7 +37,7 @@ query_per_session <- query_data%>%
   summarise(COUNT = n())
  
 
-#how many session in average
+#how many queries per session in average
 mean_query_per_session <- mean(query_per_session$COUNT, na.rm = TRUE)
 max(query_per_session$COUNT)
 min(query_per_session$COUNT)
@@ -51,6 +52,10 @@ session_length_time <- query_data%>% group_by(JOB_ID)%>%
 #drop na containing row from session_length_time
 session_length_time_filtered <- na.omit(session_length_time)
 sum(is.na(session_length_time_filtered$CATEGORIES))
+
+#session length time grouped by categories and mean session length time produced
+session_length_by_categories <- session_length_time_filtered%>%ungroup()%>%group_by(CATEGORIES)%>%
+  summarise(mean_duration = mean(Duration))
 
 #what is the maximum session duration and which row
 max_session <- session_length_time_filtered%>%
@@ -79,10 +84,44 @@ ggplot(data=industry_mean_query_counts,aes(x = MEAN, y= reorder(INDUSTRY_SECTOR_
 
 #most frequent queries per company (if compared above geombar is approved)
 frequent_queries_per_company <- industry_mean_query_counts%>%head(5)
+
+
+#distribution of queries by type
+
   
 
 #Average queries per session grouped by Industry
 industy_query_count <- inner_join(industry_data,query_data, by="JOB_ID", "INDUSTRY_SECTOR_NAME")%>%
   group_by(INDUSTRY_SECTOR_NAME)%>%
   summarise(QUERY_COUNT = n())
+
+#query success rate
+response_df <- response_data%>%
+  mutate(success = ifelse(RESPONSE_TYPE ==1, "Recruiting","Matching"))
+
+filter(response_df, JOB_ID == 153505)
+
+#query_success <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID"))%>%
+ # group_by(INDUSTRY_SECTOR_NAME)%>%
+  #count(RESPONSE_TYPE)%>%
+  #mutate(total = sum(n))%>%
+  #mutate(rate = n/total)%>%
+  #summarise(mean_rate = mean(rate))
+
+query_success <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID"))%>%
+  group_by(INDUSTRY_SECTOR_NAME)%>%
+  mutate(successful_responses = sum(RESPONSE_TYPE == 1), 
+            total_responses = n())%>%
+  summarise(success_rate = mean(successful_responses))
+
+
+industry_summary <- query_success%>%
+  arrange(desc(success_rate))
+
+
+ggplot(data=industry_summary,aes(x = success_rate, y= reorder(INDUSTRY_SECTOR_NAME, success_rate),
+                                           fill=success_rate))+geom_bar(stat = "identity")+
+  labs(x="SUCESS_RATE", y="INDUSTRY_SECTOR_NAME", title = "Industry Success Rate")
+  
+ 
 
