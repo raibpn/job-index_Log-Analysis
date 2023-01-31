@@ -307,15 +307,17 @@ filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x <- as.POSIXct(filtere
 #EXTRACT MONTH
 #filtered_query_success_behavior_time$month <- as.Date(floor_date(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "month"))
 filtered_query_success_behavior_time$month <- format(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "%b")
+  
+filtered_query_success_behavior_time$month <- factor(filtered_query_success_behavior_time$month , levels = month.abb)
 
 filtered_query_success_behavior_time_month <- filtered_query_success_behavior_time%>%
-   group_by(month)%>%summarise(mean_success = mean(successful_responses))%>%arrange(month)
+   group_by(month)%>%summarise(mean_success = mean(successful_responses))
 
 summary(filtered_query_success_behavior_time_month)
 
 
 
-ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1)) + 
+ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1) + 
   geom_line() + 
   labs(x = "Month", y = "Mean success")+geom_point()
  
