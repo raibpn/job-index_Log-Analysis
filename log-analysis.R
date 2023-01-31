@@ -317,8 +317,7 @@ filtered_query_success_behavior_time_month <- filtered_query_success_behavior_ti
 summary(filtered_query_success_behavior_time_month)
 
 
-
-ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1) + 
+ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1)) + 
   geom_line() + 
   labs(x = "Month", y = "Mean success")+geom_point()
  
