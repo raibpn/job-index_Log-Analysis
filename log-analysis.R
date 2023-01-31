@@ -317,6 +317,6 @@ summary(filtered_query_success_behavior_time_month)
 
 ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1)) + 
   geom_line() + 
-  labs(x = "Month", y = "Successful Responses")+geom_point()
+  labs(x = "Month", y = "Mean success")+geom_point()
  
 
