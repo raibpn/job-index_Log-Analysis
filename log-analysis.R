@@ -97,7 +97,7 @@ session_length_industry_summary <- session_length_by_industry%>%arrange(desc(mea
 #visualize session_length_industry_summary in histogram
 ggplot(data=session_length_industry_summary,aes(x = mean_length, y= reorder(INDUSTRY_SECTOR_NAME, mean_length),
                                  fill=mean_length))+geom_bar(stat = "identity")+
-  labs(x="MEAN_LENGTH_SECONDS", y="INDUSTRY_MEAN_DURATION", title = "Industry Success Rate")
+  labs(x="MEAN_LENGTH_SECONDS", y="INDUSTRY_SECTOR_NAME", title = "Industry Success Rate")
 
 
 
@@ -305,14 +305,19 @@ filtered_query_success_behavior_time <- na.omit(query_success_behavior_time)
 #arranged_query_success_time <- summarised_query_success_time%>%arrange(desc(mean_success))
 filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x <- as.POSIXct(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, format = "%Y-%m-%d %H:%M:%S")
 #EXTRACT MONTH
-filtered_query_success_behavior_time$month <- as.Date(floor_date(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "month"))
+#filtered_query_success_behavior_time$month <- as.Date(floor_date(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "month"))
+filtered_query_success_behavior_time$month <- format(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "%b")
 
-ggplot(filtered_query_success_behavior_time, aes(x = month, y = successful_responses)) + 
+filtered_query_success_behavior_time_month <- filtered_query_success_behavior_time%>%
+   group_by(successful_responses)%>%summarise(month)
+
+summary(filtered_query_success_behavior_time_month)
+unique(filtered_query_success_behavior_time_month$successful_responses)
+
+ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = successful_responses)) + 
   geom_line() + 
-  xlab("Month") + 
-  ylab("Success Rate") + 
-  ggtitle("Success Rate Over Time") + 
-  scale_x_date(date_breaks = "6 months", date_labels = "%b %Y")
+  labs(x = "Month", y = "Successful Responses") + 
+  scale_x_discrete(limits = month.abb)
 
 ggplot(filtered_query_success_behavior_time, aes(x=month, y=successful_responses)) +
   geom_line( color="#69b3a2") + 
