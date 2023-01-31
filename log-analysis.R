@@ -309,26 +309,14 @@ filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x <- as.POSIXct(filtere
 filtered_query_success_behavior_time$month <- format(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "%b")
 
 filtered_query_success_behavior_time_month <- filtered_query_success_behavior_time%>%
-   group_by(successful_responses)%>%summarise(month)
+   group_by(month)%>%summarise(mean_success = mean(successful_responses))%>%arrange(month)
 
 summary(filtered_query_success_behavior_time_month)
-unique(filtered_query_success_behavior_time_month$successful_responses)
 
-ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = successful_responses)) + 
+
+
+ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1)) + 
   geom_line() + 
-  labs(x = "Month", y = "Successful Responses") + 
-  scale_x_discrete(limits = month.abb)
-
-ggplot(filtered_query_success_behavior_time, aes(x=month, y=successful_responses)) +
-  geom_line( color="#69b3a2") + 
-  xlab("Month") +
-  ylab("Success Rate") +
-  theme_ipsum() +
-  theme(axis.text.x=element_text(angle=60, hjust=1)) 
-
-#EXAMPLE
-time_column <- c("2022-01-01 10:00:00", "2022-01-02 11:00:00", "2022-01-03 12:00:00")
-df <- data.frame(time_column)
-df$time_column <- as.POSIXct(df$time_column, format = "%Y-%m-%d %H:%M:%S")
-df2 <- df$year <- format(df$time_column, "%Y")
+  labs(x = "Month", y = "Successful Responses")+geom_point()
+ 
 
