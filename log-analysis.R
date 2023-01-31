@@ -307,7 +307,8 @@ filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x <- as.POSIXct(filtere
 #EXTRACT MONTH
 #filtered_query_success_behavior_time$month <- as.Date(floor_date(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "month"))
 filtered_query_success_behavior_time$month <- format(filtered_query_success_behavior_time$TIMESTAMP_FORMATTED.x, "%b")
-  
+
+#order month 
 filtered_query_success_behavior_time$month <- factor(filtered_query_success_behavior_time$month , levels = month.abb)
 
 filtered_query_success_behavior_time_month <- filtered_query_success_behavior_time%>%
