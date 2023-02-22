@@ -78,6 +78,18 @@ sum(is.na(session_length_time_filtered$CATEGORIES))
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
+#<-------Max time per session----------------------------->#
+sessionn_time_no_lubridate <- query_data%>% group_by(JOB_ID)%>%
+  mutate(session_duration = max(TIMESTAMP)-min(TIMESTAMP))%>%
+  summarise(Duration =(session_duration))
+
+average_session_time <- mean(sessionn_time_no_lubridate$Duration, na.rm = TRUE)
+
+average_session_time_formatted <- seconds_to_period(average_session_time)
+
+
+print(average_session_time_formatted)
+
 #session length time grouped by categories and mean session length time produced
 session_length_by_categories <- session_length_time_filtered%>%group_by(CATEGORIES)%>%
   summarise(mean_duration = mean(Duration))
@@ -159,7 +171,7 @@ response_df <- response_data%>%
 filter(response_df, JOB_ID == 153505)
 
 #query_success <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID"))%>%
- # group_by(INDUSTRY_SECTOR_NAME)%>%
+ #group_by(INDUSTRY_SECTOR_NAME)%>%
   #count(RESPONSE_TYPE)%>%
   #mutate(total = sum(n))%>%
   #mutate(rate = n/total)%>%
