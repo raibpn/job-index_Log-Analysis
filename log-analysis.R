@@ -11,6 +11,8 @@ library(reconstructr)
 library("ggpubr")
 library(hrbrthemes)
 
+
+#<--Hey there-->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -32,8 +34,71 @@ total_missing_value_in_query<-sum(is.na(query_data$QUERY))
 search_logs <- query_data
 
 clean_search_logs <- search_logs %>%
-  filter(!is.na(query)) %>%
+  filter(!is.na(QUERY)) %>%
   select(QUERY,TIMESTAMP_FORMATTED)
+
+search_term_count <- clean_search_logs %>%
+  group_by(QUERY)%>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+# Bar chart of top 10 search terms
+ggplot(head(search_term_count, 10), aes(x = count, y = QUERY)) +
+  geom_col(fill = "blue") +
+  xlab("Count") +
+  ylab("Search term") +
+  ggtitle("Top 10 search terms")
+
+# Line chart of search trends over time
+search_logs %>%
+  mutate(date = as.Date(TIMESTAMP_FORMATTED, "%Y-%m-%d")) %>%
+  count(date) %>%
+  ggplot(aes(x = date, y = n)) +
+  geom_line(color = "blue") +
+  xlab("Date") +
+  ylab("Count") +
+  ggtitle("Search trends over time")
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#IF THE RECRUITERS ARE USING FILTER OR JUST RELYING ON KEYWORDS WHILE SEARCHING?
+search_logs <- query_data
+# Remove irrelevant columns
+clean_search_logs <- search_logs[,c("QUERY", "TIMESTAMP_FORMATTED")]
+# Filter out incomplete data
+clean_search_logs <- clean_search_logs %>%
+  filter(!is.na(QUERY)) %>%
+  filter(!is.na(TIMESTAMP_FORMATTED))
+
+# Format data types
+clean_search_logs$TIMESTAMP_FORMATTED <- as.POSIXct(clean_search_logs$TIMESTAMP_FORMATTED, tz = "UTC")
+
+# Load tidytext package
+library(tidytext)
+
+# Tokenize search queries
+search_tokens <- clean_search_logs %>%
+  unnest_tokens(word, QUERY)
+
+# Count the frequency of each keyword
+keyword_counts <- search_tokens %>%
+  count(word, sort = TRUE)
+
+# Look for patterns in the search queries
+filter_queries <- search_tokens %>%
+  filter(word %in% c("location", "title", "company", "salary", "experience"))
+
+# Count the frequency of each filter keyword
+filter_counts <- filter_queries %>%
+  count(word, sort = TRUE)
+
+# Look for queries that do not include any filter keywords
+no_filter_queries <- search_tokens %>%
+  anti_join(filter_queries, by = "word")
+
+# Count the frequency of each non-filter keyword
+no_filter_counts <- no_filter_queries %>%
+  count(word, sort = TRUE)
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
