@@ -474,7 +474,11 @@ barplot(top_subcategories$query_count,
         col = rainbow(length(unique(top_subcategories$INDUSTRY_DIVISION_NAME))),
         ls = 2)
 
-# Identify Query Patterns
+
+########################################
+# <----- Identify Query Patterns ------>#
+#########################################
+
 query_data$KEYWORDS <- strsplit(query_data$QUERY, ' ')
 # Example: Print unique keywords
 unique_keywords <- unique(unlist(query_data$KEYWORDS))
@@ -491,15 +495,75 @@ sorted_keywords <- sort(keyword_counts, decreasing = TRUE)
 barplot(sorted_keywords[1:20], main = "Top 20 Keywords", horiz = TRUE, col = rainbow(20))
 
 # 2) word cloud visualization
+install.packages("tm")
 library(wordcloud)
-
 # Select the top 15 keywords
 top_keywords <- head(sorted_keywords, 15)
 
 # Generate a word cloud for the top 15 keywords
 wordcloud(names(top_keywords), freq = top_keywords, min.freq = 1, scale = c(3, 0.5), colors = brewer.pal(8, "Dark2"), cex = 1.5)
 
+# Analyze Query Length
+query_data$QUERY_LENGTH <- nchar(query_data$QUERY)
 
+# Visualization (histogram)
+# Set up a smaller plotting device
+par(mfrow = c(1, 1), mar = c(3, 3, 2, 1))
+
+hist(query_data$QUERY_LENGTH, breaks = 20, main = 'Distribution of Query Lengths', xlab = 'Query Length')
+
+# Explore Geographic Trends
+# Count the occurrences of each location
+location_counts <- table(unlist(strsplit(as.character(query_data$LOCATION_IDS), ',')))
+
+# Sort locations by frequency
+sorted_locations <- sort(location_counts, decreasing = TRUE)
+
+# Create a bar plot
+barplot(sorted_locations[1:15], main = "Top 15 Locations", las = 2, col = rainbow(15))
+
+# Create a pie chart
+pie(sorted_locations[1:15], labels = names(sorted_locations)[1:15], main = "Top 15 Locations", col = rainbow(15))
+
+
+# Conduct Advanced Text Analysis (NLP)
+# Example: Using the 'tm' package for text mining
+# (This requires installing the 'tm' package)
+# install.packages("tm")
+library(tm)
+
+# Create a corpus from query text
+corpus <- Corpus(VectorSource(query_data$QUERY))
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removeWords, stopwords('english'))
+
+# Example: Create a word cloud
+wordcloud(words = unlist(corpus), min.freq = 5, scale=c(3,0.5), random.order=FALSE, colors=brewer.pal(8, "Dark2"))
+
+# Cross-Industry Analysis
+# Find the top 10 sectors and categories
+top_sectors <- head(names(sort(table(merged_data$INDUSTRY_SECTOR_NAME), decreasing = TRUE)), 10)
+top_categories <- head(names(sort(table(merged_data$CATEGORIES), decreasing = TRUE)), 10)
+
+# Subset data to include only the top 10 sectors and categories
+subset_data <- merged_data[merged_data$INDUSTRY_SECTOR_NAME %in% top_sectors & 
+                             merged_data$CATEGORIES %in% top_categories, ]
+
+# Create a table for the subset data
+subset_cross_analysis <- table(subset_data$CATEGORIES, subset_data$INDUSTRY_SECTOR_NAME)
+
+
+# Visualization (heatmap)
+# Set up a smaller plotting device with reduced margin
+par(mfrow = c(1, 1), mar = c(6, 6, 4, 2))
+heatmap(subset_cross_analysis, 
+        col = heat.colors(length(subset_cross_analysis)), 
+        cexCol = 1.2, 
+        cexRow = 1.2, 
+        keysize = 1.5,
+        main = "Top 10 Sectors and Categories Heatmap")
 
 
 
@@ -510,20 +574,20 @@ wordcloud(names(top_keywords), freq = top_keywords, min.freq = 1, scale = c(3, 0
 
 # Assuming 'query_data' dataframe is available with columns: 'TIMESTAMP', 'QUERY'
 # Convert TIMESTAMP to POSIXct format
-query_data$TIMESTAMP <- as.POSIXct(query_data$TIMESTAMP, origin="1970-01-01", format="%Y-%m-%d %H:%M:%S")
+query_data$TIMESTAMP_FORMATTED <- as.POSIXct(query_data$TIMESTAMP_FORMATTED, format="%Y-%m-%d %H:%M:%S")
 
 # Calculate session duration for each query
-query_data_library <- query_data_library %>%
-  arrange(TIMESTAMP) %>%
+query_data <- query_data %>%
+  arrange(TIMESTAMP_FORMATTED) %>%
   group_by(JOB_ID, MESSAGE_ID) %>%
-  mutate(session_duration = difftime(TIMESTAMP, first(TIMESTAMP), units = "secs"))
+  mutate(session_duration = difftime(TIMESTAMP_FORMATTED, first(TIMESTAMP_FORMATTED), units = "secs"))
 
 # Normalize session duration by query count
-query_data_library <- query_data_library %>%
+query_data <- query_data %>%
   mutate(normalized_duration = session_duration / n())
 
 # Plotting Query Behavior Over Session Duration
-plot(query_data_library$normalized_duration, seq_along(query_data_library$normalized_duration),
+plot(query_data$normalized_duration, seq_along(query_data$normalized_duration),
      type = 'l', xlab = 'Normalized Session Duration', ylab = 'Query Count',
      main = 'Query Behavior Over Session Duration',
      col = 'blue', lwd = 2)
