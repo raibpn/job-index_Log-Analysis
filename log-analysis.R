@@ -580,20 +580,17 @@ query_data$TIMESTAMP_FORMATTED <- as.POSIXct(query_data$TIMESTAMP_FORMATTED, for
 query_data <- query_data %>%
   arrange(TIMESTAMP_FORMATTED) %>%
   group_by(JOB_ID, MESSAGE_ID) %>%
-  mutate(session_duration = difftime(TIMESTAMP_FORMATTED, first(TIMESTAMP_FORMATTED), units = "secs"))
+  mutate(session_duration = difftime(TIMESTAMP_FORMATTED, first(TIMESTAMP_FORMATTED), units = "secs"),
+         normalized_duration = session_duration / n())
 
-# Normalize session duration by query count
-query_data <- query_data %>%
-  mutate(normalized_duration = session_duration / n())
+# Create a histogram
+hist_data <- hist(query_data$normalized_duration, breaks = seq(0, 1, by = 0.25), plot = FALSE)
 
-# Plotting Query Behavior Over Session Duration
-plot(query_data$normalized_duration, seq_along(query_data$normalized_duration),
-     type = 'l', xlab = 'Normalized Session Duration', ylab = 'Query Count',
-     main = 'Query Behavior Over Session Duration',
-     col = 'blue', lwd = 2)
-
-# Add vertical line to indicate the midpoint of the session
-abline(v = 0.5, col = 'red', lty = 2)
+# Plot the histogram with time frame on the y-axis and query counts on the x-axis
+barplot(hist_data$counts, names.arg = hist_data$breaks[-length(hist_data$breaks)],
+        xlab = 'Normalized Session Duration', ylab = 'Query Count',
+        main = 'Query Behavior Across Session Duration',
+        col = rainbow(length(hist_data$counts)), border = 'white')
 
 # Interpretation:
 # The plot visualizes how the number of queries evolves throughout the normalized session duration.
