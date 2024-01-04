@@ -1,5 +1,6 @@
 install.packages("ggpubr")
 install.packages("dplyr")
+install.packages("wordcloud")
 
 library(tidyverse)
 library(dplyr)
@@ -12,7 +13,6 @@ library("ggpubr")
 library(hrbrthemes)
 
 
-#<--Hey there-->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -406,5 +406,132 @@ summary(filtered_query_success_behavior_time_month)
 ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_success, group=1)) + 
   geom_line() + 
   labs(x = "Month", y = "Mean success")+geom_point()
- 
+
+
+
+
+##################################################
+##################################################
+#<----LATER WITH REFINED RESEARCH QUESTIONS----->
+##################################################
+##################################################
+#<------Merge dataframes on common columns (Job_ID and MESSAGE_ID)---->
+merged_data <- merge(query_data, industry_data, by = c('JOB_ID', 'MESSAGE_ID'), all.x =TRUE)
+
+#Remove missing values from the df
+merged_data <- na.ommit(merged_data)
+
+#Analyze most common job titles and categories
+top_job_titles <- query_data %>%
+  count(JOB_TITLES, sort = TRUE) %>%
+  head(20)
+
+top_categories <- query_data %>%
+  count(CATEGORIES, sort = TRUE) %>%
+  head(20)
+
+# Visualization (bar plots)
+barplot(top_job_titles$n, names.arg = top_job_titles$JOB_TITLES, 
+        main = 'Top 10 Job Titles Searched by Recruiters', col = 'skyblue',
+        horiz = TRUE)  # Rotate x-axis labels for better visibility
+
+
+barplot(top_categories$n, names.arg = top_categories$CATEGORIES, 
+        main = 'Top 10 Categories Searched by Recruiters', col = 'skyblue',
+        horiz = TRUE)  # Rotate x-axis labels for better visibility
+
+
+# Analyze Search Behavior Across Industry Sectors
+industry_query_counts <- merged_data %>%
+  group_by(INDUSTRY_SECTOR_NAME) %>%
+  summarise(query_count = n())
+
+# Create a horizontal barplot
+barplot(industry_query_counts$query_count, 
+        names.arg = industry_query_counts$INDUSTRY_SECTOR_NAME, 
+        main = 'Search Behavior Across Industry Sectors', 
+        col = rainbow(length(unique(industry_query_counts$INDUSTRY_SECTOR_NAME))),
+        horiz = TRUE)  # Create a horizontal barplot with different colors
+
+#<------ The above bars show different sub-categories inside industry sectors----->#
+# Let's see what are those sub-categories#
+# Analyze Subcategories Within Each Industry Sector
+
+subcategories_counts <- merged_data %>%
+  group_by(INDUSTRY_SECTOR_NAME, INDUSTRY_DIVISION_NAME) %>%
+  summarise(query_count = n())
+
+# Select the top 10 subcategories based on total query count
+top_subcategories <- subcategories_counts %>%
+  group_by(INDUSTRY_SECTOR_NAME) %>%
+  top_n(20, wt = query_count) %>%
+  ungroup()
+
+# Create a horizontal barplot with different colors for each subcategory
+barplot(top_subcategories$query_count, 
+        names.arg = paste(top_subcategories$INDUSTRY_SECTOR_NAME, top_subcategories$INDUSTRY_DIVISION_NAME, sep = " - "), 
+        main = 'Top 10 Subcategories Within Each Industry Sector', 
+        col = rainbow(length(unique(top_subcategories$INDUSTRY_DIVISION_NAME))),
+        ls = 2)
+
+# Identify Query Patterns
+query_data$KEYWORDS <- strsplit(query_data$QUERY, ' ')
+# Example: Print unique keywords
+unique_keywords <- unique(unlist(query_data$KEYWORDS))
+
+# Now we visualize the unique keywords with two different methods
+# 1) bar plot visualization
+# Count the occurrences of each keyword
+keyword_counts <- table(unlist(query_data$KEYWORDS))
+
+# Sort keywords by frequency
+sorted_keywords <- sort(keyword_counts, decreasing = TRUE)
+
+# Create a bar plot
+barplot(sorted_keywords[1:20], main = "Top 20 Keywords", horiz = TRUE, col = rainbow(20))
+
+# 2) word cloud visualization
+library(wordcloud)
+
+# Select the top 15 keywords
+top_keywords <- head(sorted_keywords, 15)
+
+# Generate a word cloud for the top 15 keywords
+wordcloud(names(top_keywords), freq = top_keywords, min.freq = 1, scale = c(3, 0.5), colors = brewer.pal(8, "Dark2"), cex = 1.5)
+
+
+
+
+
+
+#<------Research Question: 5 Librarian effect----->#
+# How does the querying behavior of recruiters evolve during a search session? Do recruiters tend to issue more specific queries towards the end
+# of a session, akin to the "librarian effect" observed in library searches? ##
+
+# Assuming 'query_data' dataframe is available with columns: 'TIMESTAMP', 'QUERY'
+# Convert TIMESTAMP to POSIXct format
+query_data$TIMESTAMP <- as.POSIXct(query_data$TIMESTAMP, origin="1970-01-01", format="%Y-%m-%d %H:%M:%S")
+
+# Calculate session duration for each query
+query_data_library <- query_data_library %>%
+  arrange(TIMESTAMP) %>%
+  group_by(JOB_ID, MESSAGE_ID) %>%
+  mutate(session_duration = difftime(TIMESTAMP, first(TIMESTAMP), units = "secs"))
+
+# Normalize session duration by query count
+query_data_library <- query_data_library %>%
+  mutate(normalized_duration = session_duration / n())
+
+# Plotting Query Behavior Over Session Duration
+plot(query_data_library$normalized_duration, seq_along(query_data_library$normalized_duration),
+     type = 'l', xlab = 'Normalized Session Duration', ylab = 'Query Count',
+     main = 'Query Behavior Over Session Duration',
+     col = 'blue', lwd = 2)
+
+# Add vertical line to indicate the midpoint of the session
+abline(v = 0.5, col = 'red', lty = 2)
+
+# Interpretation:
+# The plot visualizes how the number of queries evolves throughout the normalized session duration.
+# If there's an increase in specificity towards the end of sessions, it may suggest a librarian-like behavior.
 
