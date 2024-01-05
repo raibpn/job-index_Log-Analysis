@@ -99,6 +99,9 @@ wordcloud(words = keyword_counts$word,
 # Count the frequency of each filter keyword
 #<--------------------------------------------------------------->#
 # Look for patterns in the search queries
+search_tokens <- clean_search_logs %>%
+  unnest_tokens(word, QUERY)
+
 filter_queries <- search_tokens %>%
   filter(word %in% c("location", "title", "company", "salary", "experience", "education"))
 
@@ -203,12 +206,12 @@ session_length_by_industry <- inner_join(session_length_time_filtered,industry_d
   group_by(INDUSTRY_SECTOR_NAME)%>%
   summarise(mean_length_seconds = seconds_to_period(mean(Duration)))
 
-session_length_industry_summary <- session_length_by_industry%>%arrange(desc(mean_length))
+session_length_industry_summary <- session_length_by_industry%>%arrange(desc(mean_length_seconds))
 
 
 #visualize session_length_industry_summary in histogram
-ggplot(data=session_length_industry_summary,aes(x = mean_length, y= reorder(INDUSTRY_SECTOR_NAME, mean_length),
-                                 fill=mean_length))+geom_bar(stat = "identity")+
+ggplot(data=session_length_industry_summary,aes(x = mean_length_seconds, y= reorder(INDUSTRY_SECTOR_NAME, mean_length_seconds),
+                                 fill=mean_length_seconds))+geom_bar(stat = "identity")+
   labs(x="MEAN_LENGTH_SECONDS", y="INDUSTRY_SECTOR_NAME", title = "Industry Success Rate")
 
 
@@ -284,7 +287,7 @@ query_success <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID")
   group_by(INDUSTRY_SECTOR_NAME)%>%
   mutate(successful_responses = sum(RESPONSE_TYPE == 1), 
             total_responses = n())%>%
-  summarise(success_rate = mean(successful_responses))
+  summarise(success_rate = mean(successful_responses)) #CHECK IF TOP 10 SUCCESS RATE IS FOR COMPANY WHICH HAVE HIGHEST QUERIES OR
 
 query_success1 <- inner_join(industry_data, response_df,by=c("JOB_ID" = "JOB_ID"))%>%
   group_by(INDUSTRY_SECTOR_NAME)%>%
@@ -349,6 +352,7 @@ ggscatter(summarised_query_cor_salary, x = "SALARY_MAX", y = "mean_success",
           xlab = "MAX SALARY", ylab = "MEAN_SUCCESS")
 
 cor(summarised_query_cor_salary$SALARY_MAX, summarised_query_cor_salary$mean_success)
+# CORRELATION IS -0.6510223 RESEARCH WHAT DOES THIS MEAN?
 
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -396,15 +400,28 @@ filtered_frequent_query_success <- na.omit(frequent_query_success)
 summarised_frequent_query_success <- filtered_frequent_query_success%>%group_by(QUERY)%>%
   summarise(mean_success = mean(successful_responses), n=n())
 
+
 arranged_frequent_query_success <- summarised_frequent_query_success%>%arrange(desc(mean_success))
+
 top_frequent_query_success <- arranged_frequent_query_success%>%head(5)
-#unique(arranged_frequent_query_success$mean_success)
 
+# Calculate percentage BUT IT IS NOT WORKING NOW
+#top_frequent_query_success$percentage_success <- top_frequent_query_success$mean_success * 100
+
+ggplot(top_frequent_query_success, aes(x = reorder(QUERY, -mean_success), y = mean_success)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Top Most Successful Queries",
+       x = "Queries",
+       y = "Mean Success Rate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        axis.title.x = element_blank(),  # Remove x-axis label for better readability
+        plot.margin = margin(0.2, 0.2, 0.2, 0.2, "cm"))  # Adjust plot margin for a smaller plot
 
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
-#QUERY SUCCESS BEHAVIOR CHANGED OVER TIME
+#QUERY SUCCESS BEHAVIOR CHANGED OVER TIME - IS IT GIVING TIME SERIES SUCCESS RATE BY MONTH? THEN NEED TO FIND QUERY COUNTER IN THE SAME TIME-FRAME
+# TO FIND OUT IT THE SUCCESS RATE IS DEPENDENT TO THE NUMBER OF QUERY?
 query_success_behavior_time <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
   group_by(JOB_ID)%>%
   select(TIMESTAMP_FORMATTED.x, successful_responses)
