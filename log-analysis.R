@@ -11,6 +11,7 @@ library(scales)
 library(reconstructr)
 library("ggpubr")
 library(hrbrthemes)
+library(gridExtra)
 
 
 #<-------------------------------------------------------->#
@@ -413,13 +414,23 @@ ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_succe
 ##################################################
 ##################################################
 #<----LATER WITH REFINED RESEARCH QUESTIONS----->
+
+# RQ.1 -> What is the most used query or search terms used by recruiters?
+# RQ.2 -> How does the session length/duration vary in different industry sectors?
+# RQ.3 -> Search behavior of Recruiters across industry sectors?
+# RQ.4 -> What are the factors determining search success rate? language skill, education level, salary preferences etc
+# RQ.5 -> What is the impact of pandemic in search behavior of recruiters? Did it have any effect?
+# RQ.6 -> Is there any specific patterns on how the recruiters search for candidates? Do they reformulate/reuse the same queries?
+# RQ.7 -> How does the behavior or recruiter vary in search-session? Does it show any library-effect for example they start using more complex-
+# and specific queries during the end of the session?
+
 ##################################################
 ##################################################
 #<------Merge dataframes on common columns (Job_ID and MESSAGE_ID)---->
 merged_data <- merge(query_data, industry_data, by = c('JOB_ID', 'MESSAGE_ID'), all.x =TRUE)
 
 #Remove missing values from the df
-merged_data <- na.ommit(merged_data)
+merged_data <- na.omit(merged_data)
 
 #Analyze most common job titles and categories
 top_job_titles <- query_data %>%
@@ -568,31 +579,178 @@ heatmap(subset_cross_analysis,
 
 
 
-#<------Research Question: 5 Librarian effect----->#
+#<------Research Question:7 Librarian effect----->#
 # How does the querying behavior of recruiters evolve during a search session? Do recruiters tend to issue more specific queries towards the end
 # of a session, akin to the "librarian effect" observed in library searches? ##
 
-# Assuming 'query_data' dataframe is available with columns: 'TIMESTAMP', 'QUERY'
-# Convert TIMESTAMP to POSIXct format
-query_data$TIMESTAMP_FORMATTED <- as.POSIXct(query_data$TIMESTAMP_FORMATTED, format="%Y-%m-%d %H:%M:%S")
+# Assuming 'query_data' dataframe is available with columns: 'TIMESTAMP_FORMATTED', 'JOB_ID', 'MESSAGE_ID', 'normalized_duration'
+
+# Convert TIMESTAMP_FORMATTED to POSIXct format
+#query_data$TIMESTAMP_FORMATTED <- as.POSIXct(query_data$TIMESTAMP_FORMATTED, format="%Y-%m-%d %H:%M:%S")
+
+print(class(query_data$TIMESTAMP_FORMATTED))
 
 # Calculate session duration for each query
-query_data <- query_data %>%
+# Calculate session duration for each query
+query_data_library <- query_data %>%
   arrange(TIMESTAMP_FORMATTED) %>%
   group_by(JOB_ID, MESSAGE_ID) %>%
   mutate(session_duration = difftime(TIMESTAMP_FORMATTED, first(TIMESTAMP_FORMATTED), units = "secs"),
          normalized_duration = session_duration / n())
 
-# Create a histogram
-hist_data <- hist(query_data$normalized_duration, breaks = seq(0, 1, by = 0.25), plot = FALSE)
+
+# Check and convert 'normalized_duration' to numeric
+query_data_library$normalized_duration <- as.numeric(as.character(query_data_library$normalized_duration))
+
+# Find the range of normalized_duration
+min_value <- min(query_data_library$normalized_duration, na.rm = TRUE)
+max_value <- max(query_data_library$normalized_duration, na.rm = TRUE)
+
+# Create a histogram with breaks spanning the range of normalized_duration
+hist_data <- hist(query_data_library$normalized_duration, breaks = seq(min_value, max_value, by = 0.25), plot = FALSE)
 
 # Plot the histogram with time frame on the y-axis and query counts on the x-axis
 barplot(hist_data$counts, names.arg = hist_data$breaks[-length(hist_data$breaks)],
         xlab = 'Normalized Session Duration', ylab = 'Query Count',
         main = 'Query Behavior Across Session Duration',
-        col = rainbow(length(hist_data$counts)), border = 'white')
+        col = rainbow(length(hist_data$counts)), border = 'blue')
 
-# Interpretation:
-# The plot visualizes how the number of queries evolves throughout the normalized session duration.
-# If there's an increase in specificity towards the end of sessions, it may suggest a librarian-like behavior.
 
+
+##############################################################
+##############################################################
+##############################################################
+
+# Assuming 'query_data_library' dataframe is available with columns: 'normalized_duration'
+
+# Calculate session duration for each query
+query_data_library <- query_data %>%
+  arrange(TIMESTAMP_FORMATTED) %>%
+  group_by(JOB_ID, MESSAGE_ID) %>%
+  mutate(session_duration = difftime(TIMESTAMP_FORMATTED, first(TIMESTAMP_FORMATTED), units = "secs"),
+         normalized_duration = session_duration / n())
+
+# Check and convert 'normalized_duration' to numeric
+query_data_library$normalized_duration <- as.numeric(as.character(query_data_library$normalized_duration))
+
+# Find the range of normalized_duration
+min_value <- min(query_data_library$normalized_duration, na.rm = TRUE)
+max_value <- max(query_data_library$normalized_duration, na.rm = TRUE)
+
+# Create a histogram with breaks spanning the range of normalized_duration
+hist_data <- hist(query_data_library$normalized_duration, breaks = seq(min_value, max_value, by = 0.25), plot = FALSE)
+
+# Print the top 10 values
+top_10_values <- head(sort(hist_data$counts, decreasing = TRUE), 10)
+cat("Top 10 Values:", top_10_values, "\n")
+
+# Create a new histogram with top 10 values
+top_10_hist_data <- hist_data
+top_10_hist_data$counts <- head(hist_data$counts, 10)
+
+# Plot the histogram with time frame on the y-axis and query counts on the x-axis
+barplot(top_10_hist_data$counts, names.arg = top_10_hist_data$breaks[-length(top_10_hist_data$breaks)],
+        xlab = 'Normalized Session Duration', ylab = 'Query Count',
+        main = 'Query Behavior Across Session Duration (Top 10)',
+        col = rainbow(length(top_10_hist_data$counts)), border = 'blue')
+
+###########################################################################
+###########################################################################
+#<----- RQ.5 Impact of the Pandemic on Recruiter Success ------>
+###########################################################################
+###########################################################################
+
+# Assuming 'response_data' dataframe is available
+str(response_data$TIMESTAMP_FORMATTED)
+
+# Bar plot using ggplot2
+# Convert TIMESTAMP_FORMATTED to Date if needed
+response_data$TIMESTAMP_FORMATTED <- as.Date(response_data$TIMESTAMP_FORMATTED)
+query_data$TIMESTAMP_FORMATTED <- as.Date(query_data$TIMESTAMP_FORMATTED)
+
+# Create 'pandemic_impact_analysis' dataframe
+pandemic_impact_analysis <- query_data %>%
+  left_join(response_data, by = "JOB_ID") %>%
+  mutate(pandemic_period = ifelse(
+    pandemic_impact_analysis$TIMESTAMP_FORMATTED >= as.Date('2020-01-01') &
+      pandemic_impact_analysis$TIMESTAMP_FORMATTED <= as.Date('2021-12-31'),
+    'During Pandemic',
+    'Before Pandemic'
+  ))
+
+# Create a dataframe with success rate during and before the pandemic
+success_rate_data <- pandemic_impact_analysis %>%
+  group_by(pandemic_period) %>%
+  summarise(success_rate = sum(RESPONSE_TYPE == 1, na.rm = TRUE) / n())
+
+# Bar plot for success rate during and before the pandemic
+bar_plot <- ggplot(success_rate_data, aes(x = pandemic_period, y = success_rate, fill = pandemic_period)) +
+  geom_bar(stat = "identity") +
+  labs(title = 'Success Rate During and Before Pandemic',
+       x = 'Pandemic Period',
+       y = 'Success Rate',
+       fill = 'Pandemic Period') +
+  scale_fill_manual(values = c('lightblue', 'lightgreen')) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1))  # Format y-axis labels as percentages
+
+print(bar_plot)
+
+#<-------------------->
+#<-------------------->
+#<-------------BEFORE PANDEMIC--------------->
+#<-------------------->
+
+# Convert TIMESTAMP_FORMATTED to Date if needed
+response_data$TIMESTAMP_FORMATTED <- as.Date(response_data$TIMESTAMP_FORMATTED)
+query_data$TIMESTAMP_FORMATTED <- as.Date(query_data$TIMESTAMP_FORMATTED)
+
+# Create 'before_pandemic_data' dataframe
+before_pandemic_data <- query_data %>%
+  left_join(response_data, by = "JOB_ID") %>%
+  filter(
+    query_data$TIMESTAMP_FORMATTED < as.Date('2020-03-01') &  # Date before the pandemic
+      !is.na(RESPONSE_TYPE)  # Exclude rows without a response
+  )
+
+# Print the first few rows of before_pandemic_data
+print(head(before_pandemic_data))
+
+
+# Create a dataframe with success rate before the pandemic
+success_rate_data_before_pandemic <- before_pandemic_data %>%
+  group_by(JOB_ID) %>%
+  summarise(success_rate = sum(RESPONSE_TYPE == 1, na.rm = TRUE) / n())
+
+# Bar plot for success rate before the pandemic
+bar_plot_before_pandemic <- ggplot(success_rate_data_before_pandemic, aes(x = success_rate)) +
+  geom_histogram(binwidth = 0.05, fill = 'lightblue', color = 'black', alpha = 0.7) +
+  labs(title = 'Success Rate Before Pandemic',
+       x = 'Success Rate',
+       y = 'Frequency')
+
+print(bar_plot_before_pandemic)
+
+
+
+#<--------------------------->
+#<----------###################----------------->
+#<--------------------------->
+#<------ Impact on success rate during pandemic -------> 
+# Time series plot using ggplot2
+# Time series plot for success rate during the pandemic (month-wise) and before pandemic
+monthly_success_rate_data <- pandemic_impact_analysis %>%
+  filter(RESPONSE_TYPE == 1, !is.na(RESPONSE_TYPE)) %>%
+  group_by(pandemic_period, month = format(TIMESTAMP_FORMATTED, "%Y-%m")) %>%
+  summarise(success_rate = sum(RESPONSE_TYPE == 1) / n())
+
+# Time series plot using ggplot2 with facets
+time_series_plot <- ggplot(monthly_success_rate_data, aes(x = month, y = success_rate)) +
+  geom_line() +
+  labs(title = 'Success Rate - Monthly Basis',
+       x = 'Month',
+       y = 'Success Rate') +
+  facet_wrap(~pandemic_period, scales = 'free_y', nrow = 2)  # Facet by pandemic period
+
+# Combine bar plot and time series plot
+library(gridExtra)
+grid.arrange(bar_plot, time_series_plot, ncol = 1)
