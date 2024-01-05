@@ -12,6 +12,9 @@ library(reconstructr)
 library("ggpubr")
 library(hrbrthemes)
 library(gridExtra)
+library(tidytext)
+library(wordcloud)
+library(RColorBrewer)
 
 
 #<-------------------------------------------------------->#
@@ -38,60 +41,82 @@ clean_search_logs <- search_logs %>%
   filter(!is.na(QUERY)) %>%
   select(QUERY,TIMESTAMP_FORMATTED)
 
+#<---------------------------------------------->#
+#<------ WHAT ARE THE MOST QUERIED TERMS THAT IS UNIQUE -------->#
+#<---------------------------------------------->#
 search_term_count <- clean_search_logs %>%
   group_by(QUERY)%>%
   summarise(count = n())%>%
   arrange(desc(count))
 
-# Bar chart of top 10 search terms
-ggplot(head(search_term_count, 10), aes(x = count, y = QUERY)) +
-  geom_col(fill = "blue") +
-  xlab("Count") +
-  ylab("Search term") +
-  ggtitle("Top 10 search terms")
 
-# Line chart of search trends over time
-search_logs %>%
-  mutate(date = as.Date(TIMESTAMP_FORMATTED, "%Y-%m-%d")) %>%
-  count(date) %>%
-  ggplot(aes(x = date, y = n)) +
-  geom_line(color = "blue") +
-  xlab("Date") +
-  ylab("Count") +
-  ggtitle("Search trends over time")
+# Bar chart of top 20 search terms with customized aesthetics
+ggplot(head(search_term_count, 20), aes(x = count, y = reorder(QUERY, -count), fill = count)) +
+  geom_col() +
+  scale_fill_viridis_c() +  # Use a color scale for better separation
+  labs(title = "Top 20 Search Terms",
+       x = "Search Term Count",
+       y = "Search Term") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))  
+
+
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #IF THE RECRUITERS ARE USING FILTER OR JUST RELYING ON KEYWORDS WHILE SEARCHING?
+# <------- VISUALIZE THE KEYWORDS IN WORDCLOUD ------->#
+
 search_logs <- query_data
 # Remove irrelevant columns
 clean_search_logs <- search_logs[,c("QUERY", "TIMESTAMP_FORMATTED")]
-# Filter out incomplete data
-clean_search_logs <- clean_search_logs %>%
-  filter(!is.na(QUERY)) %>%
-  filter(!is.na(TIMESTAMP_FORMATTED))
-
-# Format data types
-clean_search_logs$TIMESTAMP_FORMATTED <- as.POSIXct(clean_search_logs$TIMESTAMP_FORMATTED, tz = "UTC")
-
-# Load tidytext package
-library(tidytext)
 
 # Tokenize search queries
-search_tokens <- clean_search_logs %>%
-  unnest_tokens(word, QUERY)
-
-# Count the frequency of each keyword
-keyword_counts <- search_tokens %>%
+keyword_counts <- clean_search_logs %>%
+  filter(!is.na(QUERY)) %>%
+  unnest_tokens(word, QUERY) %>%
   count(word, sort = TRUE)
 
+# Generate word cloud
+# Generate word cloud with enhanced visuals
+wordcloud(words = keyword_counts$word,
+          freq = keyword_counts$n,
+          scale = c(3, 0.5),
+          min.freq = 1,
+          colors = brewer.pal(8, "Dark2"),
+          random.order = FALSE,  # Display words in descending frequency order
+          rot.per = 0.35,        # Control rotation of words
+          min.word.length = 3,   # Set a minimum word length
+          random.color = TRUE)   # Use random colors for words
+
+# ggtitle("Kewords in Search Queries") DON'T KNOW HOW TO PROVIDE TITLE FOR THE WORDCLOUD
+
+
+
+
+#<--------------------------------------------------------------->#
+#<----THE BELOW CODE GIVES US FACTORS WHICH ARE MOSTLY USED------>#
+# Count the frequency of each filter keyword
+#<--------------------------------------------------------------->#
 # Look for patterns in the search queries
 filter_queries <- search_tokens %>%
-  filter(word %in% c("location", "title", "company", "salary", "experience"))
+  filter(word %in% c("location", "title", "company", "salary", "experience", "education"))
 
-# Count the frequency of each filter keyword
 filter_counts <- filter_queries %>%
   count(word, sort = TRUE)
+
+# Calculate percentages
+filter_counts <- filter_counts %>%
+  mutate(percentage = n / sum(n) * 100)
+
+# VISUALIZE IN GGPLOT
+ggplot(filter_counts, aes(x = reorder(word, -n), y = n)) +
+  geom_col(fill = "blue") +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")), vjust = -0.5, color = "black") +
+  xlab("Search Factors") +
+  ylab("Count") +
+  ggtitle("Frequency of Search Factors") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Adjust x-axis labels for better readability
 
 # Look for queries that do not include any filter keywords
 no_filter_queries <- search_tokens %>%
@@ -103,7 +128,7 @@ no_filter_counts <- no_filter_queries %>%
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
-#(Here if we see same queries can be seen in more than on session also
+#(Here if we see same queries can be seen in more than one session also
  #i.e query reformulation table row no. 89 and 105)
 session_query_counts <- query_data %>%  
   group_by( JOB_ID, CATEGORIES, QUERY)%>%
@@ -426,6 +451,36 @@ ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_succe
 
 ##################################################
 ##################################################
+#POSSIBLE RESEARCH QUESTION -> MOST COMMON FILTERS USED AND HOW THEY VARY?
+######<---START---->########
+# Merge data
+merged_data <- merge(query_data, industry_data, by = c('JOB_ID', 'MESSAGE_ID'), all.x = TRUE)
+# Analyze filter usage
+# Analyze filter usage
+filter_counts <- merged_data %>%
+  group_by(CATEGORIES, EMPLOYMENT_GROUPS) %>%
+  summarise(query_count = n())
+
+# Get the top 20 categories based on query_count
+top_20_categories <- filter_counts %>%
+  arrange(desc(query_count)) %>%
+  slice_head(n = 20)
+
+print(top_20_categories)
+
+# Bar plot for the top 20 categories
+bar_plot_top_20 <- ggplot(top_20_categories, aes(x = CATEGORIES, y = query_count, fill = EMPLOYMENT_GROUPS)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = 'Top 20 Filter Usage Analysis',
+       x = 'Categories',
+       y = 'Query Count',
+       fill = 'Employment Groups') +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Adjust x-axis labels for better readability
+
+print(bar_plot_top_20)
+############<--END--->#####################
+
 #<------Merge dataframes on common columns (Job_ID and MESSAGE_ID)---->
 merged_data <- merge(query_data, industry_data, by = c('JOB_ID', 'MESSAGE_ID'), all.x =TRUE)
 
