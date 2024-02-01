@@ -37,9 +37,19 @@ total_missing_value_in_query<-sum(is.na(query_data$QUERY))
 
 search_logs <- query_data
 
+
+# Remove irrelevant queries
+query_without_meaning <- c("()", "+()", "+")
+
 clean_search_logs <- search_logs %>%
   filter(!is.na(QUERY)) %>%
   select(QUERY,TIMESTAMP_FORMATTED)
+
+clean_search_logs <- search_logs %>%
+  filter(!is.na(QUERY) && !QUERY %in% query_without_meaning) %>%
+  select(QUERY,TIMESTAMP_FORMATTED)
+
+
 
 #<---------------------------------------------->#
 #<------ WHAT ARE THE MOST QUERIED TERMS THAT IS UNIQUE -------->#
@@ -71,9 +81,9 @@ search_logs <- query_data
 # Remove irrelevant columns
 clean_search_logs <- search_logs[,c("QUERY", "TIMESTAMP_FORMATTED")]
 
-# Tokenize search queries
+# Tokenize search querieshttp://127.0.0.1:34093/graphics/63178fbd-d073-4aea-9edc-94e5de9a9dc5.png
 keyword_counts <- clean_search_logs %>%
-  filter(!is.na(QUERY)) %>%
+  filter(!is.na(QUERY)) %>% # should have already filtered..
   unnest_tokens(word, QUERY) %>%
   count(word, sort = TRUE)
 
@@ -424,7 +434,7 @@ ggplot(top_frequent_query_success, aes(x = reorder(QUERY, -mean_success), y = me
 # TO FIND OUT IT THE SUCCESS RATE IS DEPENDENT TO THE NUMBER OF QUERY?
 query_success_behavior_time <- inner_join(query_per_session1, query_success1,by=c("JOB_ID" = "JOB_ID"))%>%
   group_by(JOB_ID)%>%
-  select(TIMESTAMP_FORMATTED.x, successful_responses)
+  select(TIMESTAMP_FORMATTED.x, successful_responses) 
 
 filtered_query_success_behavior_time <- na.omit(query_success_behavior_time)
 
@@ -462,7 +472,7 @@ ggplot(filtered_query_success_behavior_time_month, aes(x = month, y = mean_succe
 # RQ.3 -> Search behavior of Recruiters across industry sectors?
 # RQ.4 -> What are the factors determining search success rate? language skill, education level, salary preferences etc
 # RQ.5 -> What is the impact of pandemic in search behavior of recruiters? Did it have any effect?
-# RQ.6 -> Is there any specific patterns on how the recruiters search for candidates? Do they reformulate/reuse the same queries?
+# RQ.6 -> Are there any specific patterns on how the recruiters search for candidates? Do they reformulate/reuse the same queries?
 # RQ.7 -> How does the behavior or recruiter vary in search-session? Does it show any library-effect for example they start using more complex-
 # and specific queries during the end of the session?
 
@@ -826,3 +836,91 @@ time_series_plot <- ggplot(monthly_success_rate_data, aes(x = month, y = success
 # Combine bar plot and time series plot
 library(gridExtra)
 grid.arrange(bar_plot, time_series_plot, ncol = 1)
+
+language_data <- query_data
+
+language_level_data <- language_data %>%
+  group_by(LANGUAGE_LEVEL) %>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+
+language_type_level_data <- language_data %>%
+  group_by(LANGUAGE_SKILLS, LANGUAGE_LEVEL) %>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+
+
+language_skills_count <- language_data %>%
+  length(str_split(LANGUAGE_SKILLS, "|")) %>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+
+length(unlist(str_split("da|en","\\|")))
+
+# filter na later
+language_skills_count <- language_data %>%
+  group_by(langs = (str_count(LANGUAGE_SKILLS,"\\|")+1)) %>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+language_skills_count <- language_data %>%
+  group_by((Langs = (length(unlist(str_split(LANGUAGE_SKILLS,"\\|")))))) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+
+language_type_level_data <- language_data %>%
+  group_by(LANGUAGE_SKILLS, LANGUAGE_LEVEL) %>%
+  summarise(count = n())%>%
+  arrange(desc(count))
+
+summary_qry <- summary(query_data)
+
+colSums(is.na(query_data))
+
+filters_used <- colSums(!is.na(query_data))
+
+query_data_job_cnt <-  query_data %>%
+  add_count(JOB_ID)
+
+query_session_length_pct <- query_data_job_cnt %>%
+  mutate(QUERY_LENGTH = length(QUERY),
+         normalized_duration = session_duration / n)
+
+job_id_max_min_ts <- query_data %>%
+  group_by(JOB_ID) %>%
+  summarise(min_ts = min(TIMESTAMP),
+            max_ts =max(TIMESTAMP))
+
+query_session_length_pct <- query_data %>%
+  inner_join_by(JOB_ID,)
+
+
+query_session_length_pct <- inner_join(query_data,job_id_max_min_ts, by="JOB_ID")%>%
+  mutate(QUERY_LENGTH = nchar(ifelse(is.na(QUERY),"",QUERY)),
+         duration_pct = round((((TIMESTAMP - min_ts) / ifelse((max_ts - min_ts) > 0, (max_ts - min_ts), 1)) * 100), digits = 0))
+
+query_session_length_pct_grp <- query_session_length_pct %>%
+  group_by(duration_pct) %>%
+  summarize(avg_query_length = mean(QUERY_LENGTH))
+
+# Bar plot for success rate before the pandemic
+bar_plot <- ggplot(query_session_length_pct_grp, aes(x = duration_pct, y=avg_query_length)) +
+  geom_bar(stat="identity")
+#  labs(title = 'Success Rate Before Pandemic',
+ #      x = 'Success Rate',
+  #     y = 'Frequency')
+
+print(bar_plot)
+
+
+
+# Create new table with query length counts
+# Create duration in percent by job_id
+# Join by job_id
+# What to plot -> Each query run (1 to 100 convert) to %
+# Another axis query length
+# Normalize how? to 1 to 100
