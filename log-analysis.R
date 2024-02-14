@@ -24,12 +24,25 @@ library(RColorBrewer)
 query_data <- read_csv("query-data.2021.csv")
 industry_data <- read_csv("industry-data.csv")
 response_data <- read_csv("response-data.2021.csv")
-
+summary(query_data)
 
 head(query_data)
 total_values<- nrow(query_data)
-
 total_missing_value_in_query<-sum(is.na(query_data$QUERY))
+
+#<-------PERCENTAGE OF MISSING VALUES----------->
+missing_percentage <- colMeans(is.na(query_data))*100
+print(missing_percentage)
+typeof(query_data$NOTICE_PERIOD)
+unique(query_data$NOTICE_PERIOD)
+
+total_values_industry <- nrow(industry_data)
+total_missing_value_in_industry <- sum(is.na(industry_data))
+missing_percentage_industry <- colMeans(is.na(industry_data))*100
+print(missing_percentage_industry)
+
+missing_percentage_response <- colMeans(is.na(response_data))*100
+print(missing_percentage_response)
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
 #<-------------------------------------------------------->#
@@ -924,3 +937,398 @@ print(bar_plot)
 # What to plot -> Each query run (1 to 100 convert) to %
 # Another axis query length
 # Normalize how? to 1 to 100
+
+
+
+
+
+##########################
+##########################
+#########################
+#<-------------------- CLEAR ONE ------------------>#
+##########################
+##########################
+#########################
+###########################
+##########################
+install.packages("ggpubr")
+install.packages("dplyr")
+install.packages("wordcloud")
+
+library(tidyverse)
+library(dplyr)
+library(readr)
+library("ggplot2")
+library(lubridate)
+library(scales)
+library(reconstructr)
+library("ggpubr")
+library(hrbrthemes)
+library(gridExtra)
+library(tidytext)
+library(wordcloud)
+library(RColorBrewer)
+
+
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#<-------------------------------------------------------->#
+#IMPORT ALL THE DATA SETS
+query_data <- read_csv("query-data.2021.csv")
+industry_data <- read_csv("industry-data.csv")
+response_data <- read_csv("response-data.2021.csv")
+summary(query_data)
+#GROUP 3
+session_duration <- query_data %>%
+  group_by(JOB_ID) %>%
+  summarize(duration = (max(TIMESTAMP)- min(TIMESTAMP))/60)
+
+#Session duration types
+session_duration_types <- session_duration %>%
+  #Make sure sessions longer than 4 hours are filtered out
+  filter(duration < 240) %>%
+  #Add new column that either contains the label 'matching' or 'recruiting'
+  mutate(session_type = ifelse(duration > 60, "recruiting","matching"))
+
+#Figure 1 : Histogram of recruiting session duration (minutes)
+session_duration_types %>% 
+  filter(session_type == "recruiting")%>%
+  ggplot(aes(x=duration, fill = "recruiting"))+
+  geom_histogram(position = "identity", binwidth = 1, color = "black")+
+  labs(title = "Histogram of recruiting session duration (minutes)",
+       x= "Session duration (minutes)",
+       y= "Frequency")+
+  scale_x_continuous(breaks = c(0, 1, 100, 150, 200, 240))+
+  scale_fill_manual(values = c("BLUE"), name= "Session Type")+
+  theme_minimal()+
+  theme(legend.position = "top")
+
+
+
+#Figure 2" Histogram of matching session duration (minutes)
+session_duration_types %>% 
+  filter(session_type == "matching")%>%
+  ggplot(aes(x=duration, fill = "matching"))+
+  geom_histogram(position = "identity", binwidth = 1, color = "black")+
+  labs(title = "Histogram of matching session duration (minutes)",
+       x= "Session duration (minutes)",
+       y= "Frequency")+
+  scale_x_continuous(breaks = c(0, 20, 40, 60))+
+  scale_fill_manual(values = c("#56B4E9"), name= "Session Type")+
+  theme_minimal()+
+  theme(legend.position = "top")
+
+#RESPONSE RATE ANALYSIS
+#<---------Contacted Candidates Analysis------------------>
+responded <- response_data %>%
+  filter(RESPONSE_TYPE %in% c("-1", "1")) %>%
+  group_by(JOB_ID, RESPONSE_TYPE) %>%
+  summarise(count = n()) %>%
+  group_by(JOB_ID) %>%
+  summarise(responded_total = sum(count))
+
+contacted <- response_data %>%
+  group_by(JOB_ID, RESPONSE_TYPE) %>%
+  summarise(count = n()) %>%
+  group_by(JOB_ID) %>%
+  summarise(contacted_total = sum(count))
+
+result_table <- left_join(responded, contacted, by = "JOB_ID")
+
+result_table <- result_table %>%
+  mutate(rate = (responded_total / contacted_total) * 100)
+
+session_duration_types_result_table <- inner_join(session_duration_types, result_table)
+
+mean_response_data_session_type <- session_duration_types_result_table %>%
+  group_by(session_type) %>%
+  summarise(mean_rate = mean(rate, na.rm = TRUE))
+
+mean_response_data <- response_data %>%
+  group_by(RESPONSE_TYPE) %>%
+  summarise(mean_rate = mean(rate))
+
+
+session_duration_types_response_data <- inner_join(session_duration_types, response_data)
+
+response_data <- response_data %>%
+  count(JOB_ID, RESPONSE_TYPE) %>%
+  group_by(JOB_ID) %>%
+  mutate(total = sum(n)) %>%
+  mutate(rate=(n/total) * 100)
+
+response_data$RESPONSE_TYPE[response_data$RESPONSE_TYPE == -1] <- 'negative'
+response_data$RESPONSE_TYPE[response_data$RESPONSE_TYPE == 0] <- 'none'
+response_data$RESPONSE_TYPE[response_data$RESPONSE_TYPE == 1] <- 'positive'
+
+#Figure 3: Mean response rate (%) by session types
+mean_response_data_session_type <- session_duration_types_response_data %>%
+  group_by(session_type) %>%
+  summarise(mean_rate = mean(rate))
+
+mean_response_data_session_type %>%
+  ggplot()+
+  labs(title = "Mean of the contacted candidates (%) by session types",
+       x = "Session type",
+       y = "Mean of the contacted candidates (%) issued per session",
+       fil = "Session type")+
+  geom_bar(aes(x= session_type, y = mean_rate, fill = session_type),
+           stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("#0072B2", "#56B4E9"))+
+  theme_minimal()
+
+#Figure:4 Mean total count of responses by session types
+mean_total_responses <- session_duration_types_response_data %>%
+  group_by(session_type) %>%
+  summarize(mean_total = mean(total))
+
+ggplot(mean_total_responses, aes(x = session_type, y = mean_total,
+                                 fill = session_type)) + 
+  geom_bar(stat = "identity", position = "dodge", show.legend = FALSE) + 
+  labs(title = "Mean total count of contacted candidates by session types", 
+       x = "Session type", 
+       y = "Mean total count of contacted candidates issued per session")+
+  scale_fill_manual(values = c("#0072B2", "#56B4E9"))+
+  theme_minimal()
+
+#Calculate the Response rate
+#<---------Response Rate Analysis------------------>
+#Calculate the total number of contacted candidates
+total_contacted <- sum(response_data$RESPONSE_TYPE != -1,0,1) %>%view
+
+print(total_contacted)
+
+#Calculate the number of responded candidates
+responded_candidates <- sum(response_data$RESPONSE_TYPE == 1 |
+response_data$RESPONSE_TYPE == -1) %>%view
+
+print(responded_candidates)
+
+#Calculate response rate
+response_rate <- responded_candidates / total_contacted
+print(response_rate)
+
+#Figure 8: Bar plot mean response rate
+mean_response_data_session_type %>%
+  ggplot(aes(x=session_type, y=mean_rate, fill = session_type))+
+  geom_bar(stat = "identity")+
+  geom_text(aes(label = paste0(round(mean_rate, 1), "%")), 
+            position = position_stack(vjust = 0.5), 
+            size = 5, color = "black") +  
+  labs(title = "Mean response rate(%) of responded candidates by session types",
+       x= "Session type",
+       y= "Mean response rate(%)",
+       fill = "Session type")+
+  scale_fill_manual(values = c("#0072B2", "#56B4E9"))+
+  theme_minimal()
+
+#<-----------------------------------NUMBER OF QUERIES------------------------------------------------------------->
+
+#Counts how many queries were executed during a search session
+session_query_counts <- query_data %>%
+  group_by(JOB_ID)%>%
+  summarise(query_count = n())
+
+session_duration_types_query_counts <- inner_join(session_duration_types, session_query_counts)
+
+#Histogram Figure: 9
+session_duration_types_query_counts %>%
+  #Filter out all job ads with more than 100 queries
+  filter(query_count <= 100) %>%
+  ggplot(aes(x=query_count, fill= session_type))+
+  geom_histogram(binwidth = 1, color= "black")+
+  #this makes the x-axis go from 0 to 100 in steps of 20
+  scale_x_continuous(breaks = seq(0, 100, 20))+
+  #change the text of the axis labels and the title
+  labs(x = "Query total count issued per session",
+       y = "Frequency",
+       title= "Query total count distribution by session type",
+       fill = "Session type")+
+  scale_fill_manual(values = c("#0072B2", "#56B4E9"))+
+  theme_minimal()
+
+#<------------------------------------TYPE OF QUERIES---------------------------------------------------------------->
+#Counts how many characters were used during a search session
+session_character_counts <- query_data %>%
+  group_by(JOB_ID) %>%
+  summarise(character_count = nchar(QUERY))
+
+session_duration_types_character_counts <- inner_join(session_duration_types,
+                                                      session_character_counts)
+#Figure 13: Scatter plot
+session_duration_types_character_counts %>%
+  filter(character_count <= 1000) %>%
+  ggplot(aes(x=duration, y= character_count, color = session_type))+
+  geom_point()+
+  labs(title = "Scatter olot of Duration vs. Character Count",
+       x = "Duration",
+       y = "Character Count")
+
+#Histogram for above scatter plot
+# Histogram Figure: 14
+session_duration_types_character_counts %>%
+  filter(character_count <= 1000) %>%
+  ggplot(aes(x=character_count, fill = session_type))+
+  geom_histogram(binwidth = 50, color= "black", position = "dodge")+
+  scale_fill_manual(values = c("#0072B2", "#56B4E9"))+
+  labs(title = "Character Count Distribution by Session Type",
+       x = "Character Count",
+       y = "Frequency",
+       fill = "Session Type")+
+  theme_minimal()
+
+
+
+
+#<-------------------------------------FILTER APPLICATION AND TIME ALLOCATION------------------------------------------>
+session_duration <- query_data %>%
+  group_by(JOB_ID) %>%
+  summarize(duration = (max(TIMESTAMP)- min(TIMESTAMP))/60)
+
+#Session duration types
+session_duration_types <- session_duration %>%
+  #Make sure sessions longer than 4 hours are filtered out
+  filter(duration < 240) %>%
+  #Add new column that either contains the label 'matching' or 'recruiting'
+  mutate(session_type = ifelse(duration > 60, "recruiting","matching"))
+
+#Extracting relevant columnns used for flter
+filtered_data <- query_data %>%
+  select(JOB_ID, 
+         LOCATION_IDS, 
+         JOB_TITLES, 
+         CATEGORIES, 
+         EDU_LEVEL_MIN, EDU_LEVEL_MAX,
+         WORK_EXP_MIN, WORK_EXP_MAX,
+         MGR_EXP_MIN, MGR_EXP_MAX,
+         SALARY_MIN, SALARY_MAX,
+         LANGUAGE_SKILLS,
+         LANGUAGE_LEVEL,
+         NOTICE_PERIOD,
+         EMPLOYMENT_GROUPS)
+
+#Replacing null values with a specific label (e.g., "unused)
+search_data_filled <- filtered_data %>%
+  mutate(across(everything(), ~ifelse(is.na(.), "unused", .)))
+
+search_data_long <- search_data_filled %>%
+  mutate(across(-JOB_ID, as.character)) %>%
+  pivot_longer(cols = -JOB_ID, names_to = "filter_type", values_to = "filter_value")
+
+#Count occurences
+usage_changes <- search_data_long %>%
+  filter(filter_value != 'unused') %>%
+  group_by(JOB_ID, filter_type) %>%
+  summarise(total_count = n())
+
+#Print the summary
+print(usage_changes)
+
+session_duration_types_filters_counts <- inner_join(session_duration_types, usage_changes)
+
+#<----------SCATTER PLOT---------------->
+session_duration_types_filters_counts %>%
+  filter(total_count <= 100) %>%
+  ggplot(aes(x = duration, y = total_count, color = session_type)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Duration vs. Filter Count",
+       x = "Duration",
+       y = "Filter COunt") + 
+  theme_minimal()
+
+#Downsampled scatter plot with smoothing curve
+
+session_duration_types_filters_counts %>%
+  filter(total_count <= 100) %>%
+  ggplot(aes(x = duration, y = total_count, color = session_type)) +
+  geom_point() +
+  geom_smooth(method = "auto, se = FALSE") +
+  geom_smooth(color = "black") +
+  labs(title = "Scatter Plot of Duration vs. Filter Count",
+       x = "Duration",
+       y = "Filter Count") +
+  theme_minimal()
+
+#Downsampled scatter plot with smoothing curve
+session_duration_types_filters_counts %>%
+  filter(total_count <= 100) %>%
+  sample_n(5000, replace = FALSE) %>%
+  ggplot(aes(x = duration, y = total_count, color = session_type)) + 
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "auto", se = FALSE) +
+  geom_smooth(color = "black") +
+  labs(title = "Downsampled Scatter Plot of Duration with Smoothing Curve vs Filter Count",
+       x="Duration",
+       y = "Filter Count") +
+  scale_color_manual(values = c("#0072B2", "#56B4E9", "turquoise")) +
+  theme_minimal()
+  
+  
+#<----------------------------HISTOGRAM-------------------------------->
+session_duration_types_filters_counts %>%
+  filter(total_count <=40) %>%
+  ggplot(aes(x = total_count, fill =session_type)) +
+  geom_histogram(binwidth = 5, position = "identity", alpha = 0.6, color = "black") +
+  geom_density(alpha = 0.3, aes(color = session_type, fill = session_type)) + 
+  labs(title = "Histogram of Filter COunt by Session TYpe",
+       x = "Filter Count",
+       y = "Frequency") + 
+  scale_fill_brewer(palette = "Set2") +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(legend.position = "right")
+  
+#<----------------------------BAR CHART----------------------------------->
+ggplot(session_duration_types_filters_counts, aes(x = session_type, y = total_count, fill = session_type)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  labs(x = "Session Type", y = "Filter total count issued per session") +
+  ggtitle("Filter Total Count by Session Type")
+  
+#Calculating mean filter count by session type
+session_duration_types_filters_counts_mean <- session_duration_types_filters_counts %>%
+  group_by(session_type) %>%
+  summarise(mean_count = mean(total_count))
+
+#Bar chart of mean counts by session types
+ggplot(session_duration_types_filters_counts_mean, aes(x = session_type, y = mean_count, fill = session_type)) +
+  geom_col()+
+  theme_minimal() + 
+  labs(x = "Session TYpe", y = "Mean Filter Count Issued per Session") +
+  ggtitle("Mean Filter Count by Session Type")
+
+mean_session_duration_types_filters_counts <- session_duration_types_filters_counts %>%
+  group_by(filter_type, session_type) %>%
+  summarise(mean_filter_total_count = mean(total_count)) %>%
+  arrange(desc(mean_filter_total_count))
+
+# Grouped Horizontal Bar plot
+mean_session_duration_types_filters_counts %>%
+  ggplot(aes(x = reorder(filter_type, mean_filter_total_count),
+             y = mean_filter_total_count,
+             fill = session_type)) +
+  geom_bar(stat = "identity", position = "dodge", show.legend = TRUE) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 12)) +
+  ggtitle("Mean filter total count by filter type") +
+  labs(x = "Filter type",
+       y = "Mean filter total count issued per session") +
+  coord_flip()
+
+  
+  
+  
+  
+  
+  
+  
+
+
+
+
+
+
+
+
+
+  
